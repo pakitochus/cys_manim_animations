@@ -72,6 +72,7 @@ class Curve(Scene):
         self.play(Write(eq1))
         self.play(ShowCreation(c2))
         self.play(Write(eq2))
+        rate=rate/2
         self.play(ShowCreation(c))
         self.play(Write(eq3))
         self.wait(2)
@@ -176,3 +177,91 @@ class Text(Scene):
             FadeIn(text_bottom)
             )
         self.wait(2)
+        
+        
+class TransferFunction(ParametricSurface):
+    """
+    Wrapper para pintar en 3D una función de transferencia H(s)
+    Hay que pasarle zeros y polos, las posiciones de cad uno de ellos. 
+    Pueden ser tuplas, listas o arrays. 
+    """
+    def __init__(self, zeros, polos, **kwargs):
+        kwargs = {
+        "u_min": -3,
+        "u_max": 3,
+        "v_min": -3,
+        "v_max": 3#,
+        # "checkerboard_colors": []
+        }
+        self.zeros=zeros
+        self.polos=polos
+        ParametricSurface.__init__(self, self.func, **kwargs)
+
+    def func(self, x, y):
+        s = x+1j*y # s es el plano complejo sigma + jomega
+        z = s**0 # inicializamos a 1 todo el plano
+        if len(self.zeros)>0:
+            for el in self.zeros:
+                z = z*(s-el)
+        if len(self.polos)>0:
+            for el in self.polos:
+                z = z/(s-el)
+        return np.array([x,y,abs(z)])
+    
+        
+class ZeroPoles(ThreeDScene):
+    def construct(self):
+        axes = ThreeDAxes()
+        # Pintamos el círculo w0
+        circle=Circle()
+        circle.set_color(RED)
+        
+        # Establecemos los polos y ceros. 
+        z1, z2 = 0,0
+        p1=-0.5-0.8660254j
+        p2=-0.5+0.8660254j
+        
+        # Pintamos los ceros
+        zero1 = Circle()
+        zero1.scale(0.1).set_color(GREEN)
+        zero2 = Circle()
+        zero2.scale(0.2).set_color(GREEN)
+        
+        # Y los polos, para lo cual usamos un wrapper que no se mostrará
+        wrapper = Square(side_length=0.25)
+        wrapper.move_to([p1.real, p1.imag, 0])
+        cross = Cross(wrapper)
+        cross.set_color(BLUE)
+        wrapper.move_to([p2.real, p2.imag, 0])
+        cross2 = Cross(wrapper)
+        cross2.set_color(BLUE)
+        
+        # Y calculamos las funciones de transferencia
+        surface1 = TransferFunction((),())
+        surface2 = TransferFunction((),(p1,p2))
+        surface3 = TransferFunction((z1,),(p1,p2))
+        surface4 = TransferFunction((z1,z2),(p1,p2))
+        
+        # Inicio de la animación:
+        self.play(ShowCreation(circle),ShowCreation(axes))
+        self.play(Write(zero1))
+        self.play(Write(zero2))
+        self.wait(2)
+        self.play(Write(cross),Write(cross2))
+        
+        group = VGroup(circle, zero1, zero2, cross, cross2)
+        
+        self.move_camera(phi=70*DEGREES,theta=-45*DEGREES,run_time=3) # phi->elevation, theta->azimuth
+        self.play(ApplyMethod(group.shift, OUT))
+        
+        self.wait(2)
+        self.play(Write(surface1))
+        # self.begin_ambient_camera_rotation(rate=0.1) 
+        self.wait(2)
+        self.play(ReplacementTransform(surface1, surface2))
+        self.wait(0.5)
+        self.play(ReplacementTransform(surface2, surface3))
+        self.wait(0.5)
+        self.play(ReplacementTransform(surface3, surface4))
+        self.wait(0.5)
+        # self.stop_ambient_camera_rotation()
