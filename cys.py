@@ -185,12 +185,12 @@ class TransferFunction(ParametricSurface):
     Hay que pasarle zeros y polos, las posiciones de cad uno de ellos. 
     Pueden ser tuplas, listas o arrays. 
     """
-    def __init__(self, zeros, polos, **kwargs):
+    def __init__(self, zeros, polos, u_max=3, v_max=3, **kwargs):
         kwargs = {
         "u_min": -3,
-        "u_max": 3,
+        "u_max": u_max,
         "v_min": -3,
-        "v_max": 3#,
+        "v_max": v_max#,
         # "checkerboard_colors": []
         }
         self.zeros=zeros
@@ -207,6 +207,18 @@ class TransferFunction(ParametricSurface):
             for el in self.polos:
                 z = z/(s-el)
         return np.array([x,y,abs(z)])
+    
+class SimpleSurface(ThreeDScene):
+    def construct(self):
+        axes = ThreeDAxes()
+        z1, z2 = 0,0
+        p1=-0.5-0.8660254j
+        p2=-0.5+0.8660254j
+        surface = TransferFunction((z1,z2),(p1,p2))
+        surface_cut = TransferFunction(zeros=(z1,z2),polos=(p1,p2),u_max=0)#, v_max=0)
+        self.play(Write(surface))
+        self.play(ReplacementTransform(surface, surface_cut))
+        self.wait(2)
     
         
 class ZeroPoles(ThreeDScene):
@@ -231,16 +243,17 @@ class ZeroPoles(ThreeDScene):
         wrapper = Square(side_length=0.25)
         wrapper.move_to([p1.real, p1.imag, 0])
         cross = Cross(wrapper)
-        cross.set_color(BLUE)
+        cross.set_color(ORANGE)
         wrapper.move_to([p2.real, p2.imag, 0])
         cross2 = Cross(wrapper)
-        cross2.set_color(BLUE)
+        cross2.set_color(ORANGE)
         
         # Y calculamos las funciones de transferencia
         surface1 = TransferFunction((),())
         surface2 = TransferFunction((),(p1,p2))
         surface3 = TransferFunction((z1,),(p1,p2))
         surface4 = TransferFunction((z1,z2),(p1,p2))
+        surface_cut = TransferFunction((z1,z2),(p1,p2),u_max=0, v_max=0)
         
         # Inicio de la animación:
         self.play(ShowCreation(circle),ShowCreation(axes))
@@ -249,19 +262,40 @@ class ZeroPoles(ThreeDScene):
         self.wait(2)
         self.play(Write(cross),Write(cross2))
         
-        group = VGroup(circle, zero1, zero2, cross, cross2)
+        # group = VGroup(circle, zero1, zero2, cross, cross2)
         
         self.move_camera(phi=70*DEGREES,theta=-45*DEGREES,run_time=3) # phi->elevation, theta->azimuth
-        self.play(ApplyMethod(group.shift, OUT))
+        self.play(ApplyMethod(circle.shift, OUT),
+                  FadeOut(cross),
+                  FadeOut(cross2),
+                  FadeOut(zero1),
+                  FadeOut(zero2))
         
-        self.wait(2)
+        # self.wait(2) # innecesario
         self.play(Write(surface1))
-        # self.begin_ambient_camera_rotation(rate=0.1) 
+        self.begin_ambient_camera_rotation(rate=0.1) 
+        self.wait(1)
+        cross.shift(OUT)
+        cross2.shift(OUT)
+        self.play(FadeIn(cross),
+                  FadeIn(cross2))
+        self.play(ReplacementTransform(surface1, surface2),
+                  ApplyMethod(cross.shift,5*OUT),
+                  ApplyMethod(cross2.shift,5*OUT))
         self.wait(2)
-        self.play(ReplacementTransform(surface1, surface2))
-        self.wait(0.5)
-        self.play(ReplacementTransform(surface2, surface3))
-        self.wait(0.5)
-        self.play(ReplacementTransform(surface3, surface4))
-        self.wait(0.5)
-        # self.stop_ambient_camera_rotation()
+        zero1.shift(OUT)
+        self.play(FadeIn(zero1))
+        self.play(ReplacementTransform(surface2, surface3),
+                  ApplyMethod(zero1.shift,IN))
+        self.wait(1)
+        zero2.shift(OUT)
+        self.play(FadeIn(zero2))
+        self.play(ReplacementTransform(surface3, surface4),
+                  ApplyMethod(zero2.shift,IN))
+        self.wait(2)
+        self.stop_ambient_camera_rotation()
+        self.play(ReplacementTransform(surface4, surface_cut))
+        self.move_camera(phi=20*DEGREES,theta=45*DEGREES,run_time=2)
+        self.wait(2)
+        
+        
