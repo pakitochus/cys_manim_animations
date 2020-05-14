@@ -207,6 +207,19 @@ class TransferFunction(ParametricSurface):
             for el in self.polos:
                 z = z/(s-el)
         return np.array([x,y,abs(z)])
+        
+    def get_respuesta(self, x):
+        hs = x**0 # inicializamos a 1 todo
+        if len(self.zeros)>0:
+            for el in self.zeros:
+                hs = hs*abs(1j*x-el)
+        if len(self.polos)>0:
+            for el in self.polos:
+                hs = hs/abs(1j*x-el)
+        return np.array([x*0, x, hs])
+        
+        
+    
     
 class SimpleSurface(ThreeDScene):
     def construct(self):
@@ -217,9 +230,9 @@ class SimpleSurface(ThreeDScene):
         surface = TransferFunction((z1,z2),(p1,p2))
         surface_cut = TransferFunction(zeros=(z1,z2),polos=(p1,p2),u_max=0)#, v_max=0)
         self.play(Write(surface))
-        self.play(ReplacementTransform(surface, surface_cut))
+        N = len(surface)
+        self.play(FadeOut(surface[int(N/2):]))
         self.wait(2)
-    
         
 class ZeroPoles(ThreeDScene):
     def construct(self):
@@ -253,14 +266,41 @@ class ZeroPoles(ThreeDScene):
         surface2 = TransferFunction((),(p1,p2))
         surface3 = TransferFunction((z1,),(p1,p2))
         surface4 = TransferFunction((z1,z2),(p1,p2))
-        surface_cut = TransferFunction((z1,z2),(p1,p2),u_max=0, v_max=0)
+        
+        func_graph = ParametricFunction(surface4.get_respuesta,color=GREEN,
+                                        t_min = surface4.u_min, t_max=surface4.u_max)
+        # graph_lab = axes.get_graph_label(func_graph, label = "|H(j\\omega)|")
+        
+        # Add text 
+        equation=TexMobject("H(s) = \\frac{s^2}{(s^2+s+1)}")
+        
+        # Set axis labels. 
+        omega3d=TexMobject("j\\omega").set_shade_in_3d(True) 
+        omega3d.rotate(PI/2,axis=UP).rotate(PI/2,axis=RIGHT).shift(5*UP).shift(0.5*IN)
+        sigma3d=TexMobject("\\sigma").set_shade_in_3d(True) 
+        sigma3d.rotate(PI,axis=UP).rotate(PI/2,axis=RIGHT).shift(5*RIGHT).shift(0.5*IN)
+        self.add(axes,omega3d,sigma3d)
+        
+        # zero and poles
+        zeroes = TexMobject("z_i = 0")
+        poles = TexMobject("p_i=-0.5\pm 0.866j")
         
         # Inicio de la animación:
         self.play(ShowCreation(circle),ShowCreation(axes))
         self.play(Write(zero1))
         self.play(Write(zero2))
+        self.add_fixed_in_frame_mobjects(zeroes)
+        zeroes.to_corner(UR)
+        zeroes.set_color(GREEN)
+        self.play(Write(zeroes))
         self.wait(2)
         self.play(Write(cross),Write(cross2))
+        self.add_fixed_in_frame_mobjects(poles)
+        poles.to_corner(UR)
+        poles.shift(0.5*DOWN)
+        poles.set_color(ORANGE)
+        self.play(Write(poles))
+        
         
         # group = VGroup(circle, zero1, zero2, cross, cross2)
         
@@ -272,7 +312,10 @@ class ZeroPoles(ThreeDScene):
                   FadeOut(zero2))
         
         # self.wait(2) # innecesario
-        self.play(Write(surface1))
+        # ponemos la ecuación
+        self.add_fixed_in_frame_mobjects(equation)
+        equation.to_corner(UL)
+        self.play(ShowCreation(surface1),Write(equation))
         self.begin_ambient_camera_rotation(rate=0.1) 
         self.wait(1)
         cross.shift(OUT)
@@ -290,12 +333,44 @@ class ZeroPoles(ThreeDScene):
         self.wait(1)
         zero2.shift(OUT)
         self.play(FadeIn(zero2))
+        sigma3d.rotate(PI,axis=OUT)
         self.play(ReplacementTransform(surface3, surface4),
-                  ApplyMethod(zero2.shift,IN))
+                  ApplyMethod(zero2.shift,IN),
+                  FadeOut(zeroes),
+                  FadeOut(poles))
         self.wait(2)
         self.stop_ambient_camera_rotation()
-        self.play(ReplacementTransform(surface4, surface_cut))
-        self.move_camera(phi=20*DEGREES,theta=45*DEGREES,run_time=2)
+        self.play(ShowCreation(func_graph))
+        N= len(surface4)
+        self.play(VFadeOut(surface4[int(N/2):]))
+        self.move_camera(phi=90*DEGREES,theta=0*DEGREES,run_time=3, 
+                         added_anims=[FadeOut(cross),FadeOut(cross2),
+                                      FadeOut(zero1),FadeOut(zero2),
+                                      FadeOut(circle),FadeOut(equation)])
+        self.play(FadeOut(surface4))
         self.wait(2)
         
+class Text3D3(ThreeDScene):
+    def construct(self):
+        axes = ThreeDAxes()
+        self.set_camera_orientation(phi=75 * DEGREES,theta=-45*DEGREES)
+        text3d=TextMobject("This is a 3D text")
+
+        self.add_fixed_in_frame_mobjects(text3d) #<----- Add this
+        text3d.to_corner(UL)
+
+        self.add(axes)
+        self.begin_ambient_camera_rotation()
+        self.play(Write(text3d))
+
+        sphere = ParametricSurface(
+            lambda u, v: np.array([
+                1.5*np.cos(u)*np.cos(v),
+                1.5*np.cos(u)*np.sin(v),
+                1.5*np.sin(u)
+            ]),v_min=0,v_max=TAU,u_min=-PI/2,u_max=PI/2,checkerboard_colors=[RED_D, RED_E],
+            resolution=(15, 32)).scale(2)
+
+        self.play(ShowCreation(sphere))
+        self.wait(2)
         
